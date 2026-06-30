@@ -1,0 +1,6 @@
+builddir/
+compile_commands.json
+*.o
+*.so
+*.swp
+__pycache__/
