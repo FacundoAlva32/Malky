@@ -28,7 +28,7 @@ item_label(MalkyMenuAction action, gboolean sleeping)
     switch (action) {
         case M_MENU_SLEEP_TOGGLE:
             return sleeping ? "Despertar" : "Dormir";
-        case M_MENU_CONFIG:   return "Config";
+        case M_MENU_SKIN:     return "Apariencia";
         case M_MENU_PLUGINS:  return "Plugins";
         case M_MENU_QUIT:     return "Salir";
     }

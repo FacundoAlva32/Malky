@@ -7,7 +7,7 @@ typedef struct _MalkyContextMenu MalkyContextMenu;
 
 typedef enum {
     M_MENU_SLEEP_TOGGLE,
-    M_MENU_CONFIG,
+    M_MENU_SKIN,
     M_MENU_PLUGINS,
     M_MENU_QUIT,
 } MalkyMenuAction;

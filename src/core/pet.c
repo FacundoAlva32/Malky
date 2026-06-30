@@ -27,11 +27,6 @@ struct _MalkyPet {
 
 static const char *greetings[] = {
     "Gonorrea",
-    "Que onda!",
-    "Necesitas algo?",
-    ":D",
-    "Arrastrame algo!",
-    "Estoy aca!",
 };
 
 static const char *motivational[] = {
@@ -40,15 +35,10 @@ static const char *motivational[] = {
 };
 
 static const char *long_phrases[] = {
-    "Por un dia, por una hora...",
-    "Por un minuto, por tan solo un segundo",
-    "Por un instante, fue posible.",
-//    NULL,
-//    "Cree que puedes...",
-//    "...y ya estas a medio camino.",
-//    "...lo demas es accion!",
-//    NULL,
-//    NULL,
+    "No hay redención sin renuncia",
+    "y no hay renuncia sin coraje",
+    NULL,
+    NULL,
 };
 
 static const char *startup_phrases[] = {
@@ -183,6 +173,12 @@ MalkySkin *
 malky_pet_get_skin(MalkyPet *pet)
 {
     return pet->skin;
+}
+
+gboolean
+malky_pet_load_skin_dir(MalkyPet *pet, const char *dir)
+{
+    return malky_skin_load(pet->skin, dir);
 }
 
 void

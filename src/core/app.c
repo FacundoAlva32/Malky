@@ -5,6 +5,7 @@
 #include "movement.h"
 #include "dialog.h"
 #include "pet.h"
+#include "skin.h"
 #include "dragdrop.h"
 #include "plugin.h"
 #include "context_menu.h"
@@ -52,6 +53,118 @@ on_motion(GtkEventControllerMotion *controller,
     malky_window_queue_redraw(app->window);
 }
 
+// ── Skin picker ────────────────────────────────────────────
+
+typedef struct {
+    MalkyApp *app;
+    char    **dirs;
+    int       count;
+    int       offset;
+} SkinPicker;
+
+static void
+skin_picker_free(SkinPicker *sp)
+{
+    if (!sp) return;
+    malky_skin_list_free(sp->dirs);
+    g_free(sp);
+}
+
+static void
+show_skin_batch(SkinPicker *sp);
+
+static void
+on_skin_choice(int choice, gpointer user_data)
+{
+    SkinPicker *sp = (SkinPicker *)user_data;
+    if (choice < 0) { skin_picker_free(sp); return; }
+
+    if (choice == 0)
+    {
+        malky_pet_load_skin_dir(sp->app->pet, sp->dirs[sp->offset]);
+        malky_pet_say(sp->app->pet, "Skin cambiado!", 1500);
+        skin_picker_free(sp);
+        return;
+    }
+
+    // choice == 1
+    int next = sp->offset + 2;
+    if (next < sp->count)
+    {
+        // "Mas..." → show next batch
+        sp->offset = next;
+        show_skin_batch(sp);
+    }
+    else if (sp->offset + 1 < sp->count)
+    {
+        // Last pair: second skin was chosen
+        malky_pet_load_skin_dir(sp->app->pet, sp->dirs[sp->offset + 1]);
+        malky_pet_say(sp->app->pet, "Skin cambiado!", 1500);
+        skin_picker_free(sp);
+    }
+    else
+    {
+        // Only one skin shown + "Cancelar" → cancelled
+        skin_picker_free(sp);
+    }
+}
+
+static void
+show_skin_batch(SkinPicker *sp)
+{
+    if (sp->offset >= sp->count)
+    {
+        malky_pet_say(sp->app->pet, "No hay mas skins.", 2000);
+        skin_picker_free(sp);
+        return;
+    }
+
+    char *name1 = malky_skin_get_display_name(sp->dirs[sp->offset]);
+
+    if (sp->offset + 1 < sp->count)
+    {
+        char *name2 = malky_skin_get_display_name(sp->dirs[sp->offset + 1]);
+        gboolean more = (sp->offset + 2 < sp->count);
+        const char *btn2 = more ? "Mas..." : name2;
+
+        malky_dialog_ask(sp->app->dialog,
+            "Elegi un skin:", name1, btn2,
+            on_skin_choice, sp, NULL);
+
+        g_free(name1);
+        g_free(name2);
+    }
+    else
+    {
+        malky_dialog_ask(sp->app->dialog,
+            "Elegi un skin:", name1, "Cancelar",
+            on_skin_choice, sp, NULL);
+        g_free(name1);
+    }
+}
+
+static void
+start_skin_picker(MalkyApp *app)
+{
+    SkinPicker *sp = g_new0(SkinPicker, 1);
+    sp->app = app;
+    sp->dirs = malky_skin_list_dirs();
+    sp->count = 0;
+
+    if (sp->dirs)
+        while (sp->dirs[sp->count]) sp->count++;
+
+    if (sp->count == 0)
+    {
+        malky_pet_say(app->pet, "No hay skins instaladas.", 2500);
+        malky_skin_list_free(sp->dirs);
+        g_free(sp);
+        return;
+    }
+
+    show_skin_batch(sp);
+}
+
 static void
 on_menu_action(MalkyMenuAction action, gpointer user_data)
 {
@@ -72,9 +185,8 @@ on_menu_action(MalkyMenuAction action, gpointer user_data)
             }
             break;
         }
-        case M_MENU_CONFIG:
-            malky_pet_say(app->pet,
-                "Ventana de configuracion proximamente!", 3000);
+        case M_MENU_SKIN:
+            start_skin_picker(app);
             break;
         case M_MENU_PLUGINS:
             malky_pet_say(app->pet,

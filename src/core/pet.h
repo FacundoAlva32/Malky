@@ -30,5 +30,6 @@ MalkyPetState malky_pet_get_state(MalkyPet *pet);
 void          malky_pet_click(MalkyPet *pet);
 void          malky_pet_say(MalkyPet *pet, const char *text, int timeout_ms);
 void          malky_pet_handle_dnd(MalkyPet *pet, int dnd_type, const char *name);
+gboolean      malky_pet_load_skin_dir(MalkyPet *pet, const char *dir);
 MalkySkin    *malky_pet_get_skin(MalkyPet *pet);
 const char   *malky_pet_state_name(MalkyPetState state);

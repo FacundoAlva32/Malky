@@ -3,6 +3,7 @@
 
 #include <math.h>
 #include <string.h>
+#include <stdio.h>
 
 #define MAX_STATES M_PET_COUNT
 #define DEFAULT_FRAME_W 128
@@ -98,25 +99,21 @@ malky_skin_load(MalkySkin *skin, const char *dir)
     }
     g_free(ini_path);
 
-    // Load sprite sheet
+    // Load sprite sheet (optional — fallback bird si no existe)
     gchar *png_path = g_build_filename(dir, "sheet.png", NULL);
-    if (!g_file_test(png_path, G_FILE_TEST_EXISTS))
+    if (g_file_test(png_path, G_FILE_TEST_EXISTS))
     {
-        g_free(png_path);
-        return FALSE;
+        cairo_surface_t *s = cairo_image_surface_create_from_png(png_path);
+        if (cairo_surface_status(s) == CAIRO_STATUS_SUCCESS)
+        {
+            g_clear_pointer(&skin->sheet, cairo_surface_destroy);
+            skin->sheet = s;
+        }
+        else
+            cairo_surface_destroy(s);
     }
-
-    cairo_surface_t *s = cairo_image_surface_create_from_png(png_path);
     g_free(png_path);
 
-    if (cairo_surface_status(s) != CAIRO_STATUS_SUCCESS)
-    {
-        cairo_surface_destroy(s);
-        return FALSE;
-    }
-
-    g_clear_pointer(&skin->sheet, cairo_surface_destroy);
-    skin->sheet = s;
     return TRUE;
 }
 
@@ -314,4 +311,103 @@ malky_skin_draw(MalkySkin *skin, cairo_t *cr,
         draw_from_sheet(skin, cr, state, anim_frame, cx, cy);
     else
         draw_fallback_bird(cr, state, anim_frame, cx, cy);
+}
+
+// ── Skin scanning ──────────────────────────────────────────
+
+static void
+scan_skin_dir(GPtrArray *dirs, const char *base)
+{
+    GError *err = NULL;
+    GDir *dir = g_dir_open(base, 0, &err);
+    if (!dir)
+    {
+        g_clear_error(&err);
+        return;
+    }
+
+    const char *name;
+    while ((name = g_dir_read_name(dir)) != NULL)
+    {
+        gchar *full = g_build_filename(base, name, NULL);
+        if (!g_file_test(full, G_FILE_TEST_IS_DIR))
+        {
+            g_free(full);
+            continue;
+        }
+
+        gchar *ini = g_build_filename(full, "skin.ini", NULL);
+        gchar *sheet = g_build_filename(full, "sheet.png", NULL);
+
+        gboolean valid = g_file_test(ini, G_FILE_TEST_EXISTS)
+                      || g_file_test(sheet, G_FILE_TEST_EXISTS);
+
+        g_free(ini);
+        g_free(sheet);
+
+        if (valid)
+            g_ptr_array_add(dirs, full);
+        else
+            g_free(full);
+    }
+
+    g_dir_close(dir);
+}
+
+char **
+malky_skin_list_dirs(void)
+{
+    GPtrArray *dirs = g_ptr_array_new();
+
+    gchar *user = g_build_filename(g_get_user_data_dir(), "malky", "skins", NULL);
+    scan_skin_dir(dirs, user);
+    g_free(user);
+
+    gchar *exe = g_file_read_link("/proc/self/exe", NULL);
+    if (exe)
+    {
+        gchar *exe_dir = g_path_get_dirname(exe);
+        gchar *dev = g_build_filename(exe_dir, "skins", NULL);
+        scan_skin_dir(dirs, dev);
+        g_free(dev);
+        g_free(exe_dir);
+        g_free(exe);
+    }
+
+    g_ptr_array_add(dirs, NULL);
+    return (char **)g_ptr_array_free(dirs, FALSE);
+}
+
+void
+malky_skin_list_free(char **list)
+{
+    if (!list) return;
+    for (int i = 0; list[i]; i++)
+        g_free(list[i]);
+    g_free(list);
+}
+
+char *
+malky_skin_get_display_name(const char *dir)
+{
+    gchar *ini = g_build_filename(dir, "skin.ini", NULL);
+    gchar *name = NULL;
+
+    if (g_file_test(ini, G_FILE_TEST_EXISTS))
+    {
+        GKeyFile *kf = g_key_file_new();
+        if (g_key_file_load_from_file(kf, ini, G_KEY_FILE_NONE, NULL))
+        {
+            gchar *n = g_key_file_get_string(kf, "info", "name", NULL);
+            if (n)
+                name = n;
+        }
+        g_key_file_free(kf);
+    }
+    g_free(ini);
+
+    if (!name)
+        name = g_path_get_basename(dir);
+
+    return name;
 }
